@@ -68,16 +68,21 @@ export default function RubiksCube() {
   const [ms, setMs] = useState(0);
   const tRef = useRef({ start: 0, raf: 0 });
   const [status, setStatus] = useState("Ready");
-
+  const doMoveRef = useRef(null);
   /* ---------------- Timer helpers ---------------- */
   const startTimer = () => {
     if (running) return;
+
     setRunning(true);
-    tRef.current.start = performance.now() - ms;
+    tRef.current.start = performance.now();
+
     const tick = () => {
-      setMs(performance.now() - tRef.current.start);
+      if (!tRef.current.start) return; // ✅ stop if reset
+      const elapsed = performance.now() - tRef.current.start;
+      setMs(elapsed);
       tRef.current.raf = requestAnimationFrame(tick);
     };
+
     tRef.current.raf = requestAnimationFrame(tick);
   };
   const stopTimer = () => {
@@ -88,15 +93,19 @@ export default function RubiksCube() {
   const resetTimer = () => {
     if (tRef.current.raf) {
       cancelAnimationFrame(tRef.current.raf);
-      tRef.current.raf = 0;
+      tRef.current.raf = null;
     }
 
-    tRef.current.start = 0; // ✅ reset the base time too
+    // also clear start so elapsed doesn’t compute from old value
+    tRef.current.start = 0;
 
+    // reset states
     setRunning(false);
     setMs(0);
   };
-
+  useEffect(() => {
+    doMoveRef.current = doMove;
+  });
   /* ---------------- Init Three.js ---------------- */
   useEffect(() => {
     const mount = mountRef.current;
@@ -174,10 +183,10 @@ export default function RubiksCube() {
       if (state.current.rotating) return;
       const k = e.key.toUpperCase();
 
-      // Letter moves
       if (MAP[k]) {
         const prime = e.shiftKey;
-        doMove(k, prime ? -1 : +1, true);
+        //use the latest doMove
+        doMoveRef.current?.(k, prime ? -1 : +1, true);
         state.current.lastMove = {
           k,
           dir: prime ? -1 : +1,
@@ -186,21 +195,19 @@ export default function RubiksCube() {
         return;
       }
 
-      // Quickly pressing 2 after a letter => double turn
       if ((e.key === "2" || e.code === "Digit2") && state.current.lastMove) {
         const { k: lk, dir, time } = state.current.lastMove;
         if (performance.now() - time < 400) {
-          doMove(lk, dir, true, "double");
+          doMoveRef.current?.(lk, dir, true, "double");
           state.current.lastMove = null;
         }
         return;
       }
 
-      // Optional: apostrophe immediately after => prime
       if ((e.key === "'" || e.key === "’") && state.current.lastMove) {
         const { k: lk, dir, time } = state.current.lastMove;
         if (performance.now() - time < 400) {
-          doMove(lk, -dir, true);
+          doMoveRef.current?.(lk, -dir, true);
           state.current.lastMove = null;
         }
       }
@@ -244,8 +251,8 @@ export default function RubiksCube() {
   ) => {
     // Start timer on first manual move
     if (manual && !running) {
-      resetTimer(); // ensure a clean state
       startTimer();
+      // resetTimer();
     }
 
     const { cubeGroup, cubies } = state.current;
@@ -301,7 +308,7 @@ export default function RubiksCube() {
     setStatus("Scrambling…");
 
     stopTimer();
-    resetTimer(); // ✅ Clear time
+    resetTimer();
 
     setHistory([]);
 
@@ -331,7 +338,7 @@ export default function RubiksCube() {
     setStatus("Checkerboarding…");
 
     stopTimer();
-    resetTimer(); // Clear time
+    resetTimer();
 
     setHistory([]);
 
