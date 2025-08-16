@@ -5,6 +5,8 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 import EspressoLogo from "./assets/logo/logo.png";
 
+// icons
+import { TfiTimer } from "react-icons/tfi";
 //sides
 import rightSide from "./assets/sides/side1.png";
 import leftSide from "./assets/sides/side2.png";
@@ -84,7 +86,14 @@ export default function RubiksCube() {
     cancelAnimationFrame(tRef.current.raf);
   };
   const resetTimer = () => {
-    stopTimer();
+    if (tRef.current.raf) {
+      cancelAnimationFrame(tRef.current.raf);
+      tRef.current.raf = 0;
+    }
+
+    tRef.current.start = 0; // ✅ reset the base time too
+
+    setRunning(false);
     setMs(0);
   };
 
@@ -234,7 +243,10 @@ export default function RubiksCube() {
     manual = true
   ) => {
     // Start timer on first manual move
-    if (manual && !running) startTimer();
+    if (manual && !running) {
+      resetTimer(); // ensure a clean state
+      startTimer();
+    }
 
     const { cubeGroup, cubies } = state.current;
     const { axis, layer, dir: faceSign } = MAP[faceKey];
@@ -304,18 +316,12 @@ export default function RubiksCube() {
   const handleReset = async () => {
     setStatus("Resetting…");
 
-    // Stop and reset timer
-    stopTimer();
-    resetTimer();
-
-    // Clear move history
+    resetTimer(); // ✅ this alone stops + clears timer
     setHistory([]);
 
-    // Remove all cubies from scene
     disposeCubies(state.current.cubies);
     state.current.cubeGroup.clear();
 
-    // Rebuild solved cube
     state.current.cubies = buildCubies(state.current.cubeGroup);
 
     setStatus("Ready");
@@ -382,8 +388,12 @@ export default function RubiksCube() {
         <button onClick={handleCheckerboard} style={btnStyle}>
           Checkerboard
         </button>
-        <span style={{ color: "white", fontFamily: "ui-monospace, monospace" }}>
-          ⏱ {String(mm).padStart(2, "0")}:{String(ss).padStart(2, "0")}.{msDisp}
+        <span
+          className="flex gap-1 justify-center items-center"
+          style={{ color: "white", fontFamily: "ui-monospace, monospace" }}
+        >
+          <TfiTimer size={20} /> {String(mm).padStart(2, "0")}:
+          {String(ss).padStart(2, "0")}.{msDisp}
         </span>
         <span style={{ color: "#B67237" }}>{status}</span>
       </div>
