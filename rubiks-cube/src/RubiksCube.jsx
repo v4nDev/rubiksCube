@@ -460,7 +460,7 @@ function buildCubies(parent) {
         cache.set(
           value,
           new THREE.MeshStandardMaterial({
-            image: value, // Image
+            color: value, // Image
             roughness: 20,
             metalness: 20,
           })
