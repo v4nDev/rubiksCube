@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-// Espresso Logo
 
+
+// Espresso Logo
 import EspressoLogo from "./assets/logo/logo.png";
+
 
 // icons
 import { TfiTimer } from "react-icons/tfi";
+
 //sides
 import rightSide from "./assets/sides/side1.png";
 import leftSide from "./assets/sides/side2.png";
@@ -24,18 +27,16 @@ const bottomSideImage = textureLoader.load(bottomSide);
 const topSideImage = textureLoader.load(topSide);
 const frontSideImage = textureLoader.load(frontSide);
 
-/** Face colors */
 const C = {
-  U: topSideImage, // white
-  D: bottomSideImage, // yellow
-  L: leftSideImagge, // orange
-  R: rightSideImage, // red
-  F: frontSideImage, // green
-  B: backSideImage, // blue
-  H: 0x111111, // hidden/internal
+  U: topSideImage, 
+  D: bottomSideImage, 
+  L: leftSideImagge, 
+  R: rightSideImage, 
+  F: frontSideImage, 
+  B: backSideImage, 
+  H: 0x111111, 
 };
 
-/** Move metadata */
 const MAP = {
   U: { axis: "y", layer: 1, dir: +1 },
   D: { axis: "y", layer: -1, dir: -1 },
@@ -45,7 +46,6 @@ const MAP = {
   B: { axis: "z", layer: -1, dir: -1 },
 };
 
-/** Utility */
 const RIGHT_ANGLE = Math.PI / 2;
 const ease = (k) => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
 
@@ -63,7 +63,7 @@ export default function RubiksCube() {
     lastMove: null,
   });
 
-  const [history, setHistory] = useState([]); // ["R", "U'", "F2", ...]
+  const [history, setHistory] = useState([]); // Store move history ex: ["R", "L", "B" etc]
   const [running, setRunning] = useState(false);
   const [ms, setMs] = useState(0);
   const tRef = useRef({ start: 0, raf: 0 });
@@ -77,7 +77,7 @@ export default function RubiksCube() {
     tRef.current.start = performance.now();
 
     const tick = () => {
-      if (!tRef.current.start) return; // ✅ stop if reset
+      if (!tRef.current.start) return;
       const elapsed = performance.now() - tRef.current.start;
       setMs(elapsed);
       tRef.current.raf = requestAnimationFrame(tick);
@@ -96,7 +96,6 @@ export default function RubiksCube() {
       tRef.current.raf = null;
     }
 
-    // also clear start so elapsed doesn’t compute from old value
     tRef.current.start = 0;
 
     // reset states
@@ -106,12 +105,12 @@ export default function RubiksCube() {
   useEffect(() => {
     doMoveRef.current = doMove;
   });
-  /* ---------------- Init Three.js ---------------- */
+
+
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount) return;
 
-    // In case Fast Refresh/StrictMode left something, nuke all children first.
     while (mount.firstChild) mount.removeChild(mount.firstChild);
 
     const w = mount.clientWidth;
@@ -167,7 +166,6 @@ export default function RubiksCube() {
     };
     loop();
 
-    // Resize via ResizeObserver for reliable full-screen
     const ro = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const cr = entry.contentRect;
@@ -178,14 +176,13 @@ export default function RubiksCube() {
     });
     ro.observe(mount);
 
-    // Keyboard controls
+    // Handle keyboard controls
     const onKeyDown = (e) => {
       if (state.current.rotating) return;
       const k = e.key.toUpperCase();
 
       if (MAP[k]) {
         const prime = e.shiftKey;
-        //use the latest doMove
         doMoveRef.current?.(k, prime ? -1 : +1, true);
         state.current.lastMove = {
           k,
@@ -213,20 +210,16 @@ export default function RubiksCube() {
       }
     };
     window.addEventListener("keydown", onKeyDown);
-
-    /* -------- cleanup -------- */
     return () => {
       cancelAnimationFrame(state.current.animId);
       window.removeEventListener("keydown", onKeyDown);
 
-      // stop observing & dispose three.js stuff
       ro.disconnect();
       disposeCubies(state.current.cubies);
       controls.dispose();
 
       if (renderer) {
         renderer.dispose();
-        // Remove any canvases we added
         while (mount.firstChild) mount.removeChild(mount.firstChild);
       }
 
@@ -238,10 +231,9 @@ export default function RubiksCube() {
       state.current.cubies = [];
       stopTimer();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ---------------- Moves ---------------- */
+ // Handle moves logic
   const doMove = async (
     faceKey,
     dir = +1,
@@ -262,16 +254,14 @@ export default function RubiksCube() {
     const rotGroup = new THREE.Group();
     cubeGroup.add(rotGroup);
 
-    // Move selected cubies into rotGroup (preserving world transform)
     targets.forEach((c) => rotGroup.attach(c.mesh));
 
-    // How many quarter turns (1 or 2)
+    // Handle double moves
     const turns = special === "double" ? 2 : 1;
     state.current.rotating = true;
 
     const chain = async () => {
       for (let i = 0; i < turns; i++) {
-        // eslint-disable-next-line no-await-in-loop
         await rotateGroup(rotGroup, axis, RIGHT_ANGLE * dir * faceSign, 180);
       }
     };
@@ -303,7 +293,7 @@ export default function RubiksCube() {
     });
   };
 
-  /* ---------------- Buttons ---------------- */
+  // HUD Buttons Functions
   const handleScramble = async () => {
     setStatus("Scrambling…");
 
@@ -314,7 +304,7 @@ export default function RubiksCube() {
 
     const seq = makeScramble(25);
     for (const s of seq) {
-      await doMove(s.face, s.dir, false, s.double ? "double" : null, false); // manual = false
+      await doMove(s.face, s.dir, false, s.double ? "double" : null, false); // False if manual move
     }
 
     setStatus("Scrambled. Start solving!");
@@ -323,7 +313,7 @@ export default function RubiksCube() {
   const handleReset = async () => {
     setStatus("Resetting…");
 
-    resetTimer(); // ✅ this alone stops + clears timer
+    resetTimer(); // Call reset timer
     setHistory([]);
 
     disposeCubies(state.current.cubies);
@@ -350,7 +340,7 @@ export default function RubiksCube() {
     setStatus("Checkerboard pattern applied!");
   };
 
-  /* ---------------- UI ---------------- */
+  // UI
   const mm = Math.floor(ms / 60000);
   const ss = Math.floor((ms % 60000) / 1000);
   const msDisp = Math.floor((ms % 1000) / 10)
@@ -449,7 +439,6 @@ export default function RubiksCube() {
   );
 }
 
-/* ---------- Three helpers ---------- */
 
 function buildCubies(parent) {
   const cubies = [];
@@ -464,14 +453,14 @@ function buildCubies(parent) {
         cache.set(
           value,
           new THREE.MeshBasicMaterial({
-            map: value, // unaffected by scene lighting
+            map: value
           })
         );
       } else {
         cache.set(
           value,
           new THREE.MeshStandardMaterial({
-            color: value, // color
+            image: value, // Image
             roughness: 20,
             metalness: 20,
           })
@@ -561,19 +550,8 @@ function snap(mesh) {
   );
 }
 
-/** Reset to solved pose (no animation) */
-async function resetCube(st) {
-  st.cubies.forEach(({ mesh }) => {
-    mesh.position.set(
-      Math.round(mesh.position.x),
-      Math.round(mesh.position.y),
-      Math.round(mesh.position.z)
-    );
-    mesh.rotation.set(0, 0, 0);
-  });
-}
 
-/** Scramble generator (avoids immediate face repeats) */
+// Handle Scramble Logic
 function makeScramble(n = 25) {
   const faces = Object.keys(MAP);
   const seq = [];
@@ -590,7 +568,7 @@ function makeScramble(n = 25) {
   return seq;
 }
 
-/** Solved detection: each outward face must be a single color */
+// Solved detection: each outward face must be a single image
 function isSolved(cubies) {
   const faces = [
     { axis: "x", sign: +1, color: C.R, world: new THREE.Vector3(1, 0, 0) },
@@ -641,7 +619,7 @@ function isSolved(cubies) {
   return true;
 }
 
-/* Simple button style */
+// Buttons Style
 const btnStyle = {
   background: "#B67237",
   color: "white",
